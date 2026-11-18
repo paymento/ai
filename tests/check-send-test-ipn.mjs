@@ -1,12 +1,17 @@
-// Checks scripts/send-test-ipn.mjs signs callbacks the way the reference handler verifies them.
+// Checks the test-callback script in references/ipn-callbacks.md signs callbacks the way the reference handler verifies them.
 // node tests/check-send-test-ipn.mjs
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const script = join(dirname(fileURLToPath(import.meta.url)), "../skills/paymento-accept-payments/scripts/send-test-ipn.mjs");
+// The script ships as a code block in the references (the plugin directory accepts only Markdown, not .mjs files).
+const doc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../skills/paymento-accept-payments/references/ipn-callbacks.md"), "utf8").replace(/\r\n/g, "\n");
+const script = join(mkdtempSync(join(tmpdir(), "paymento-ipn-")), "send-test-ipn.mjs");
+writeFileSync(script, doc.match(/```js\n([\s\S]*?)```/)[1]);
 const secret = "test-secret";
 const seen = [];
 const server = http.createServer((req, res) => {
