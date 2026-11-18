@@ -49,7 +49,6 @@ skills/paymento-accept-payments/
   references/nodejs.md         # drop-in Node.js / TypeScript code
   references/other-languages.md# Python, PHP and C# building blocks
 openapi.json                   # Paymento external API schema
-tests/                         # checks that the reference code still behaves as documented
 .claude-plugin/                # Claude Code plugin and marketplace manifests
 plugin.json                    # Agent Plugins manifest (Cursor, Codex)
 .agents/plugins/               # Codex marketplace
@@ -71,10 +70,9 @@ Nothing is sent to Paymento or anyone else by the plugin itself.
 
 ## Development
 
-The Node.js reference is executable documentation: `tests/check-nodejs-reference.ts` extracts its code blocks and runs them against signed callbacks, failure cases and a concurrency race.
+The Node.js reference and the test-callback script are executable documentation: the checks in [paymento/ai-tests](https://github.com/paymento/ai-tests) extract their code blocks from this repository and run them against signed callbacks, failure cases and a concurrency race. They live there because the Claude plugin directory accepts only Markdown, JSON, YAML and images here.
 
 ```bash
-node --experimental-transform-types --no-warnings tests/check-nodejs-reference.ts
 claude plugin validate .
 ```
 
