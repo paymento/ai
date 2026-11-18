@@ -75,7 +75,7 @@ Keep the code in the project's existing style and layers: an API client module, 
 
 ## Test the integration
 
-1. Run the IPN endpoint locally (through a tunnel if Paymento must reach it) and send it signed callbacks with [scripts/send-test-ipn.mjs](scripts/send-test-ipn.mjs). Check that a wrong signature gets `401`, a valid one gets `2xx` and a stored row, and a repeat changes nothing.
+1. Run the IPN endpoint locally (through a tunnel if Paymento must reach it) and send it signed callbacks with the test script in [references/ipn-callbacks.md](references/ipn-callbacks.md#testing). Check that a wrong signature gets `401`, a valid one gets `2xx` and a stored row, and a repeat changes nothing.
 2. Make real test payments on testnets: <https://docs.paymento.io/accept-crypto-payments/testing-and-simulation>.
 
 ## Done when

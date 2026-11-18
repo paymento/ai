@@ -45,10 +45,9 @@ Then ask your agent something like *"Add Paymento crypto checkout to this app"*.
 skills/paymento-accept-payments/
   SKILL.md                     # the flow, the rules that break integrations, the done checklist
   references/api-reference.md  # endpoints, fields, envelopes, statuses
-  references/ipn-callbacks.md  # callback format, signature, retries, processing
+  references/ipn-callbacks.md  # callback format, signature, retries, processing, test-callback script
   references/nodejs.md         # drop-in Node.js / TypeScript code
   references/other-languages.md# Python, PHP and C# building blocks
-  scripts/send-test-ipn.mjs    # sends a correctly signed test callback to your IPN URL
 openapi.json                   # Paymento external API schema
 tests/                         # checks that the reference code still behaves as documented
 .claude-plugin/                # Claude Code plugin and marketplace manifests
@@ -65,7 +64,7 @@ Data leaves the machine in two places, both under the developer's control:
 
 | What | Sends to | Data |
 | --- | --- | --- |
-| `scripts/send-test-ipn.mjs`, when the developer runs it | The IPN URL the developer passes on the command line (their own endpoint) | A synthetic test callback, signed with `PAYMENTO_IPN_SECRET` from the developer's environment. The secret itself is not sent. |
+| The test-callback script in `references/ipn-callbacks.md`, when the developer saves and runs it | The IPN URL the developer passes on the command line (their own endpoint) | A synthetic test callback, signed with `PAYMENTO_IPN_SECRET` from the developer's environment. The secret itself is not sent. |
 | The integration code the skill writes into the merchant's app, at the app's runtime | `https://api.paymento.io` (Paymento's API) | Payment requests and verifications, authenticated with the merchant's own `PAYMENTO_API_KEY` |
 
 Nothing is sent to Paymento or anyone else by the plugin itself.
