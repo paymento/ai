@@ -45,7 +45,7 @@ Then ask your agent something like *"Add Paymento crypto checkout to this app"*.
 skills/paymento-accept-payments/
   SKILL.md                     # the flow, the rules that break integrations, the done checklist
   references/api-reference.md  # endpoints, fields, envelopes, statuses
-  references/ipn-callbacks.md  # callback format, signature, retries, processing, test-callback script
+  references/ipn-callbacks.md  # callback format, signature, retries, processing, testing
   references/nodejs.md         # drop-in Node.js / TypeScript code
   references/other-languages.md# Python, PHP and C# building blocks
 openapi.json                   # Paymento external API schema
@@ -59,18 +59,17 @@ assets/logo.svg                # plugin logo
 
 The plugin contains an agent skill and documentation only: no MCP server, connector or hooks. It does not read, store or send personal data, and it never reads the installer's credentials.
 
-Data leaves the machine in two places, both under the developer's control:
+Data leaves the machine only through the code the skill writes into the merchant's app:
 
 | What | Sends to | Data |
 | --- | --- | --- |
-| The test-callback script in `references/ipn-callbacks.md`, when the developer saves and runs it | The IPN URL the developer passes on the command line (their own endpoint) | A synthetic test callback, signed with `PAYMENTO_IPN_SECRET` from the developer's environment. The secret itself is not sent. |
-| The integration code the skill writes into the merchant's app, at the app's runtime | `https://api.paymento.io` (Paymento's API) | Payment requests and verifications, authenticated with the merchant's own `PAYMENTO_API_KEY` |
+| The integration code the skill writes into the merchant's app, at the app's runtime | `https://api.paymento.io` (Paymento's API) | Payment requests and verifications, authenticated with the API key the merchant adds to their app's configuration |
 
 Nothing is sent to Paymento or anyone else by the plugin itself.
 
 ## Development
 
-The Node.js reference and the test-callback script are executable documentation: the checks in [paymento/ai-tests](https://github.com/paymento/ai-tests) extract their code blocks from this repository and run them against signed callbacks, failure cases and a concurrency race. They live there because the Claude plugin directory accepts only Markdown, JSON, YAML and images here.
+The Node.js reference is executable documentation: the checks in the paymento/ai-tests repository extract its code blocks from this repository and run them against signed callbacks, failure cases and a concurrency race. They live there because the Claude plugin directory accepts only Markdown, JSON, YAML and images here.
 
 ```bash
 claude plugin validate .
