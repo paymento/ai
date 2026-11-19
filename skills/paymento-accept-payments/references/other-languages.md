@@ -2,23 +2,26 @@
 
 The building blocks for stacks other than Node.js. Structure the integration exactly like [nodejs.md](nodejs.md): an API client that checks `success`, an IPN route that checks the signature, stores the callback and answers `2xx`, a processor that verifies and updates the order under a lock, and a retry job.
 
+Each snippet receives the store's API key and secret key from the app's own server-side configuration (`config` below), loaded the way the app already loads its other secrets. The merchant fills in those values; never hardcode them.
+
 ## Python
 
 ```python
-import hashlib, hmac, os
+import hashlib, hmac
 import requests  # pip install requests
 
-API = os.environ.get("PAYMENTO_API_BASE", "https://api.paymento.io")
-HEADERS = {"Api-Key": os.environ["PAYMENTO_API_KEY"], "Accept": "application/json"}
+# config: {"api_base": "https://api.paymento.io", "api_key": ..., "ipn_secret": ...} from the app's settings
+def _headers(config: dict) -> dict:
+    return {"Api-Key": config["api_key"], "Accept": "application/json"}
 
-def is_valid_ipn_signature(raw_body: bytes, signature: str | None) -> bool:
+def is_valid_ipn_signature(raw_body: bytes, signature: str | None, ipn_secret: str) -> bool:
     if not signature:
         return False
-    expected = hmac.new(os.environ["PAYMENTO_IPN_SECRET"].encode(), raw_body, hashlib.sha256).hexdigest().upper()
+    expected = hmac.new(ipn_secret.encode(), raw_body, hashlib.sha256).hexdigest().upper()
     return hmac.compare_digest(expected, signature.strip().upper())
 
-def create_payment(order_id: str, amount: str, currency: str, return_url: str) -> str:
-    r = requests.post(f"{API}/v1/payment/request", headers=HEADERS, timeout=30, json={
+def create_payment(config: dict, order_id: str, amount: str, currency: str, return_url: str) -> str:
+    r = requests.post(f"{config['api_base']}/v1/payment/request", headers=_headers(config), timeout=30, json={
         "fiatAmount": amount, "fiatCurrency": currency, "returnUrl": return_url, "orderId": order_id})
     r.raise_for_status()
     res = r.json()
@@ -26,8 +29,8 @@ def create_payment(order_id: str, amount: str, currency: str, return_url: str) -
         raise RuntimeError(f"PAYMENTO_REQUEST_FAILED: {res['message']}")
     return res["body"].strip()
 
-def verify(token: str) -> dict:
-    r = requests.post(f"{API}/v1/payment/verify", headers=HEADERS, timeout=30, json={"token": token})
+def verify(config: dict, token: str) -> dict:
+    r = requests.post(f"{config['api_base']}/v1/payment/verify", headers=_headers(config), timeout=30, json={"token": token})
     r.raise_for_status()
     res = r.json()
     if not res["body"]["token"]:  # "Invalid Token"; success=false alone is normal
@@ -41,13 +44,14 @@ Raw body: Django `request.body`, Flask `request.get_data()`, FastAPI `await requ
 
 ```php
 <?php
-function paymento_call(string $method, string $path, ?array $body = null): array {
-    $ch = curl_init((getenv('PAYMENTO_API_BASE') ?: 'https://api.paymento.io') . $path);
+// $config: ['api_base' => 'https://api.paymento.io', 'api_key' => ..., 'ipn_secret' => ...] from the app's settings
+function paymento_call(array $config, string $method, string $path, ?array $body = null): array {
+    $ch = curl_init($config['api_base'] . $path);
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST  => $method,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 30,
-        CURLOPT_HTTPHEADER     => ['Api-Key: ' . getenv('PAYMENTO_API_KEY'), 'Content-Type: application/json', 'Accept: application/json'],
+        CURLOPT_HTTPHEADER     => ['Api-Key: ' . $config['api_key'], 'Content-Type: application/json', 'Accept: application/json'],
         CURLOPT_POSTFIELDS     => $body === null ? null : json_encode($body),
     ]);
     $raw = curl_exec($ch);
@@ -59,8 +63,8 @@ function paymento_call(string $method, string $path, ?array $body = null): array
     return json_decode($raw, true);
 }
 
-function paymento_create_payment(string $orderId, string $amount, string $currency, string $returnUrl): string {
-    $res = paymento_call('POST', '/v1/payment/request', [
+function paymento_create_payment(array $config, string $orderId, string $amount, string $currency, string $returnUrl): string {
+    $res = paymento_call($config, 'POST', '/v1/payment/request', [
         'fiatAmount' => $amount, 'fiatCurrency' => $currency, 'returnUrl' => $returnUrl, 'orderId' => $orderId,
     ]);
     if (empty($res['success']) || trim((string) $res['body']) === '') { // refusals are HTTP 200
@@ -69,25 +73,25 @@ function paymento_create_payment(string $orderId, string $amount, string $curren
     return trim($res['body']);
 }
 
-function paymento_verify(string $token): array {
-    $res = paymento_call('POST', '/v1/payment/verify', ['token' => $token]);
+function paymento_verify(array $config, string $token): array {
+    $res = paymento_call($config, 'POST', '/v1/payment/verify', ['token' => $token]);
     if (empty($res['body']['token'])) { // "Invalid Token"; success=false alone is normal
         throw new RuntimeException('PAYMENTO_VERIFY_FAILED: ' . $res['message']);
     }
     return $res['body']; // branch on $body['orderStatus']
 }
 
-function paymento_signature_valid(string $rawBody, ?string $signature): bool {
+function paymento_signature_valid(string $rawBody, ?string $signature, string $ipnSecret): bool {
     if ($signature === null || trim($signature) === '') {
         return false;
     }
-    $expected = strtoupper(hash_hmac('sha256', $rawBody, getenv('PAYMENTO_IPN_SECRET')));
+    $expected = strtoupper(hash_hmac('sha256', $rawBody, $ipnSecret));
     return hash_equals($expected, strtoupper(trim($signature)));
 }
 
 // IPN route (plain PHP). Laravel: $request->getContent() and $request->header('X-HMAC-SHA256-Signature').
 $raw = file_get_contents('php://input');
-if (!paymento_signature_valid($raw, $_SERVER['HTTP_X_HMAC_SHA256_SIGNATURE'] ?? null)) {
+if (!paymento_signature_valid($raw, $_SERVER['HTTP_X_HMAC_SHA256_SIGNATURE'] ?? null, $config['ipn_secret'])) {
     http_response_code(401);
     exit;
 }

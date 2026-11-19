@@ -12,7 +12,7 @@ Paymento is a non-custodial gateway: the customer pays from their wallet straigh
 
 Confirm with the user, or find in the project:
 
-1. **Paymento credentials** from the merchant dashboard at <https://app.paymento.io>: the store's **API key** and **secret key**. Store them as server-side environment variables (`PAYMENTO_API_KEY`, `PAYMENTO_IPN_SECRET`). Never ship them to a browser, mobile app bundle or client component.
+1. **Paymento credentials** from the merchant dashboard at <https://app.paymento.io>: the store's **API key** and **secret key**. The merchant adds them to the app's own server-side configuration (wherever the app keeps its other secrets); the code reads them from there. Don't ask for their values and never hardcode them. Never ship them to a browser, mobile app bundle or client component.
 2. **A public HTTPS IPN URL** on the backend (not localhost; for local development use a tunnel).
 3. **A return URL** for the customer's browser after checkout.
 4. **The stack and where orders live**, so callbacks can be stored durably and orders updated under a lock.
@@ -21,7 +21,7 @@ If the merchant uses WooCommerce, OpenCart or WHMCS, point them to the ready-mad
 
 ## Integration steps
 
-Base URL `https://api.paymento.io`. Every call sends the header `Api-Key: <PAYMENTO_API_KEY>` and JSON. Every response is `{ success, message, body }`.
+Base URL `https://api.paymento.io`. Every call sends the header `Api-Key: <the store's API key>` and JSON. Every response is `{ success, message, body }`.
 
 0. **Set the IPN URL once per store**: `POST /v1/payment/settings` with `{ "ipN_URL": "https://…/api/paymento/ipn", "ipN_Method": 1 }`. It persists; do not call it per payment. A one-off setup script or admin action is enough.
 1. **Create the payment**: `POST /v1/payment/request` with `{ fiatAmount, fiatCurrency, returnUrl, orderId }` (optional: `riskSpeed`, `language`, `emailAddress`, `tokenExpiryDate`, `cryptoAmounts`, `additionalData`). Check `success`, then the token is `body`. Save the token with the order before redirecting.
@@ -75,12 +75,12 @@ Keep the code in the project's existing style and layers: an API client module, 
 
 ## Test the integration
 
-1. Run the IPN endpoint locally (through a tunnel if Paymento must reach it) and send it signed callbacks with the test script in [references/ipn-callbacks.md](references/ipn-callbacks.md#testing). Check that a wrong signature gets `401`, a valid one gets `2xx` and a stored row, and a repeat changes nothing.
+1. Run the IPN endpoint locally (through a tunnel if Paymento must reach it) and test it with signed callbacks from the app's own test suite, as described in [references/ipn-callbacks.md](references/ipn-callbacks.md#testing). Check that a wrong signature gets `401`, a valid one gets `2xx` and a stored row, and a repeat changes nothing.
 2. Make real test payments on testnets: <https://docs.paymento.io/accept-crypto-payments/testing-and-simulation>.
 
 ## Done when
 
-- [ ] Keys live only in server-side environment variables.
+- [ ] Keys live only in the app's server-side configuration, added by the merchant.
 - [ ] The IPN URL is set once with `ipN_Method: 1`, or the IPN route accepts POST and PUT.
 - [ ] Payment creation checks `success` and never redirects without a token.
 - [ ] The IPN route checks the HMAC over the raw body in constant time and answers `401` on failure.

@@ -1,15 +1,15 @@
 # Node.js / TypeScript reference
 
-Drop-in code for a Node.js backend (Express shown; the same functions work in Next.js route handlers, Fastify or serverless functions). Every block here is exercised by `tests/check-nodejs-reference.ts` in this repository.
+Drop-in code for a Node.js backend (Express shown; the same functions work in Next.js route handlers, Fastify or serverless functions). Every block here is exercised by the checks in the paymento/ai-tests repository.
 
-Environment (server-side only):
+`paymentoConfig` is the app's own server-side configuration, loaded the way the app already loads its other secrets. The merchant fills in the values; the code never hardcodes them and the agent never asks for them:
 
-```
-PAYMENTO_API_BASE=https://api.paymento.io
-PAYMENTO_API_KEY=...
-PAYMENTO_IPN_SECRET=...
-PAYMENTO_RETURN_URL=https://merchant.example/payments/return
-```
+| Field | Value |
+| --- | --- |
+| `apiBase` | `https://api.paymento.io` |
+| `apiKey` | The store's API key, from the Paymento dashboard |
+| `ipnSecret` | The store's secret key, used to check callback signatures |
+| `returnUrl` | Where the customer's browser returns after the gateway |
 
 `Orders` and `PaymentoInbox` stand for the app's own persistence. Implement them against the app's database:
 
@@ -55,10 +55,10 @@ export type VerifyResponse = {
 
 ```ts
 async function call<T>(path:string, init:RequestInit):Promise<Envelope<T>>{
-  const r = await fetch(`${process.env.PAYMENTO_API_BASE}${path}`, {
+  const r = await fetch(`${paymentoConfig.apiBase}${path}`, {
     ...init,
     headers:{
-      "Api-Key": process.env.PAYMENTO_API_KEY!,
+      "Api-Key": paymentoConfig.apiKey,
       "Content-Type":"application/json",
       Accept:"application/json",
       ...(init.headers||{})
@@ -96,7 +96,7 @@ export async function createGatewayUrl(input:{orderId:string; amount:string; cur
   const token = await paymento.request({
     fiatAmount: input.amount,      // "1000.50" — "." decimal point, no thousands separators
     fiatCurrency: input.currency,
-    returnUrl: process.env.PAYMENTO_RETURN_URL!,
+    returnUrl: paymentoConfig.returnUrl,
     orderId: input.orderId,
     riskSpeed: 0,
   });
@@ -112,7 +112,7 @@ import crypto from "crypto";
 export function isValidIpnSignature(rawBody:unknown, signature:string|undefined):boolean{
   if(!Buffer.isBuffer(rawBody) || !signature) return false;
   const expected = Buffer.from(
-    crypto.createHmac("sha256", process.env.PAYMENTO_IPN_SECRET!).update(rawBody).digest("hex").toUpperCase());
+    crypto.createHmac("sha256", paymentoConfig.ipnSecret).update(rawBody).digest("hex").toUpperCase());
   const received = Buffer.from(signature.trim().toUpperCase());
   return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }
